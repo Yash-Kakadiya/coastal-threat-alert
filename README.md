@@ -110,23 +110,38 @@ source venv/bin/activate       # Linux / macOS
 pip install -r requirements.txt
 
 # 2. run FastAPI server (dev)
-uvicorn backend.app:app --reload --port 8000
+uvicorn backend.app:app --reload --port 7777
 ```
 
 **Demo usage (quick test)** — use `sensor_override` to test without processed CSVs:
-```bash
-curl -X POST "http://localhost:8000/get_threat_level" -H "Content-Type: application/json" -d '{
-  "location_id": "PORBANDAR",
-  "sensor_override": {
-    "timestamp": "2025-08-30T07:00:00Z",
-    "wind_speed_m_s": 12.0,
-    "wave_height_m": 1.5,
-    "tide_level_m": 0.6,
-    "turbidity_ntu": 10.0,
-    "chlorophyll": 1.2,
-    "sst": 29.0
+```powershell
+curl -X POST "http://127.0.0.1:7777/get_threat_level" -H "Content-Type: application/json" -d "{
+  \"location_id\": \"PORBANDAR\",
+  \"sensor_override\": {
+    \"timestamp\": \"2025-08-30T07:00:00Z\",
+    \"wind_speed_m_s\": 12.0,
+    \"wave_height_m\": 1.5,
+    \"tide_level_m\": 0.6,
+    \"turbidity_ntu\": 10.0,
+    \"chlorophyll\": 1.2,
+    \"sst\": 29.0
   }
-}'
+}"
+OR
+$body = @{
+  location_id = "PORBANDAR"
+  sensor_override = @{
+    timestamp = "2025-08-30T07:00:00Z"
+    wind_speed_m_s = 12.0
+    wave_height_m = 1.5
+    tide_level_m = 0.6
+    turbidity_ntu = 10.0
+    chlorophyll = 1.2
+    sst = 29.0
+  }
+} | ConvertTo-Json -Depth 5
+
+Invoke-RestMethod -Uri "http://127.0.0.1:7777/get_threat_level" -Method POST -Body $body -ContentType "application/json"
 ```
 
 ### Data preprocessing (once you have CSVs)
