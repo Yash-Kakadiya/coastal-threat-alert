@@ -105,8 +105,8 @@ From repo root:
 # 1. create virtualenv & install
 cd backend
 python -m venv venv
-source venv/bin/activate       # Linux / macOS
-# .\venv\Scripts\activate      # Windows PowerShell
+ .\venv\Scripts\activate      # Windows PowerShell
+# source venv/bin/activate       # Linux / macOS
 pip install -r requirements.txt
 
 # 2. run FastAPI server (dev)
@@ -150,8 +150,8 @@ Put datasets in `backend/data/raw/`. Then run the preprocessing helpers (example
 ```py
 # Python snippet (run inside backend virtualenv)
 from backend.data_prep import preprocess_csv_paths
-csvs = ["backend/data/raw/wind.csv", "backend/data/raw/waves.csv", "backend/data/raw/tide.csv"]
-preprocess_csv_paths(csvs, "backend/data/processed/porbandar.parquet")
+csvs = ["backend/data/raw/beach_weather.csv"]
+preprocess_csv_paths(csvs, "backend/data/processed/cleaned_weather.csv")
 ```
 
 After preprocessing the backend will be able to load the latest processed row per location and compute threat scores automatically (replace demo `sensor_override` mode).

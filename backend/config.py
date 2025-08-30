@@ -57,19 +57,25 @@ This can later be extended for dynamic configs (e.g. from Firebase).
 THREAT_LABELS = {0: "Safe", 1: "Caution", 2: "Warning", 3: "Danger"}
 
 # Thresholds for different parameters
+# These values can be tuned based on meteorological standards for the Gujarat coast.
 THRESHOLDS = {
-    "wind_speed": [10, 20, 30],  # m/s
-    "maximum_wind_speed": [15, 25, 35],  # m/s
-    "humidity": [70, 85, 95],  # %
-    "rain_intensity": [1, 5, 10],  # mm/hr
-    "barometric_pressure": [1000, 990, 980],  # hPa (lower = more dangerous)
+    "wind_speed": [
+        12,
+        22,
+        35,
+    ],  # km/h converted to m/s approx -> now reflects Beaufort scale more
+    "maximum_wind_speed": [18, 30, 45],  # m/s
+    "humidity": [80, 90, 95],  # %
+    "rain_intensity": [2.5, 7.5, 15],  # mm/hr (light, moderate, heavy)
+    "barometric_pressure": [1005, 995, 985],  # hPa (lower = more dangerous)
 }
 
-# Weights for each parameter (contribution to total score)
+# Weights for each parameter (contribution to total score).
+# Increased importance for pressure and maximum wind speed.
 WEIGHTS = {
-    "wind_speed": 0.25,
-    "maximum_wind_speed": 0.25,
-    "humidity": 0.15,
-    "rain_intensity": 0.20,
-    "barometric_pressure": 0.15,
+    "wind_speed": 0.20,
+    "maximum_wind_speed": 0.30,
+    "humidity": 0.05,
+    "rain_intensity": 0.15,
+    "barometric_pressure": 0.30,
 }

@@ -1,59 +1,70 @@
-import pytest
-from httpx import AsyncClient
+"""
+Pytest tests for the FastAPI application using the official TestClient.
+"""
+
+# --- FIX: Import TestClient from FastAPI instead of httpx.AsyncClient ---
+from fastapi.testclient import TestClient
+import pandas as pd
+from unittest.mock import patch
+
+# Import the FastAPI app instance from your application file
 from backend.app import app
 
+# --- FIX: Create a single, synchronous TestClient instance ---
+client = TestClient(app)
 
-@pytest.mark.asyncio
-async def test_root_endpoint():
-    """Health check should return message."""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        response = await ac.get("/")
+
+# --- FIX: Removed @pytest.mark.asyncio and async/await keywords ---
+def test_health_endpoint():
+    """Tests the /health endpoint for a 200 OK response."""
+    # Use the client to make a request
+    response = client.get("/health")
     assert response.status_code == 200
-    assert "message" in response.json()
-    assert "Coastal Threat Alert API" in response.json()["message"]
+    assert response.json() == {"status": "ok"}
 
 
-@pytest.mark.asyncio
-async def test_threat_score_endpoint():
-    """POST /threat/score should return a valid threat score."""
+def test_threat_score_endpoint():
+    """Tests the POST /threat/score endpoint with a valid custom payload."""
     payload = {
-        "wind_speed": 10,
-        "maximum_wind_speed": 15,
-        "humidity": 70,
-        "rain_intensity": 2,
-        "barometric_pressure": 1000,
+        "wind_speed": 18,
+        "maximum_wind_speed": 22,
+        "humidity": 80,
+        "rain_intensity": 3,
+        "barometric_pressure": 995,
     }
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        response = await ac.post("/threat/score", json=payload)
+    response = client.post("/threat/score", json=payload)
+
     assert response.status_code == 200
     data = response.json()
     assert "score" in data
     assert "level" in data
     assert "parameters" in data
+    assert "raw" in data
+    assert data["raw"]["wind_speed"] == payload["wind_speed"]
 
 
-@pytest.mark.asyncio
-async def test_threat_from_csv_endpoint(tmp_path):
-    """GET /threat/from_csv should return threat for latest row in CSV."""
-    # create a fake CSV in processed dir
-    processed_dir = tmp_path / "processed"
-    processed_dir.mkdir()
-    fake_csv = processed_dir / "cleaned_weather.csv"
-    fake_csv.write_text(
-        "Wind Speed,Maximum Wind Speed,Humidity,Rain Intensity,Barometric Pressure\n"
-        "5,8,60,1,1012\n"
-    )
+def test_latest_threat_endpoint():
+    """
+    Tests the GET /threat/latest endpoint.
+    This test uses a mock to avoid actual file I/O.
+    """
+    mock_data = {
+        "measurement_timestamp": ["2025-08-30 12:00:00"],
+        "air_temperature": [28.5],
+        "humidity": [88],
+        "rain_intensity": [5.0],
+        "wind_speed": [25.0],
+        "maximum_wind_speed": [35.0],
+        "barometric_pressure": [992.0],
+    }
+    mock_df = pd.DataFrame(mock_data)
 
-    # monkeypatch Path so app reads our fake CSV
-    import backend.app as app_module
-
-    app_module.Path = lambda _: fake_csv
-
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        response = await ac.get("/threat/from_csv")
+    with patch("backend.app.pd.read_csv", return_value=mock_df):
+        response = client.get("/threat/latest")
 
     assert response.status_code == 200
     data = response.json()
-    assert "latest_reading" in data
-    assert "threat" in data
-    assert "score" in data["threat"]
+    assert "score" in data
+    assert "level" in data
+    assert "raw" in data
+    assert data["raw"]["wind_speed"] == 25.0

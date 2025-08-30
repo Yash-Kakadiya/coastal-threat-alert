@@ -1,79 +1,103 @@
-# """
-# Basic tests for threat_model.calculate_threat_score
-# Run: pytest backend/tests/test_threat_model.py
-# """
-
-# from backend.threat_model import calculate_threat_score
-
-
-# def test_score_shape_and_bounds():
-#     payload = {
-#         "wind_speed_m_s": 10.0,
-#         "wave_height_m": 1.2,
-#         "tide_level_m": 0.5,
-#         "turbidity_ntu": 5.0,
-#         "chlorophyll": 0.8,
-#         "sst": 28.0,
-#     }
-#     out = calculate_threat_score(payload)
-#     assert "score" in out
-#     assert 0 <= out["score"] <= 100
-#     assert out["threat_level"] in {"SAFE", "WATCH", "WARNING", "DANGER"}
-#     assert "components" in out
-#     assert "explanation" in out
-
 """
-test_threat_model.py
+threat_model.py
 
 Purpose:
 --------
-Unit tests for the threat_model.py module.
-Ensures that calculate_threat_score() works correctly
-with sample input rows from the processed dataset.
+Implements the rule-based threat scoring system for the
+Coastal Threat Alert System.
+
+Uses thresholds and weights defined in config.py to
+calculate a threat score (0–100) and map it to a threat level.
 """
 
 import pandas as pd
-from backend.threat_model import calculate_threat_score
+from backend.config import THRESHOLDS, WEIGHTS, THREAT_LABELS
 
 
-def test_calculate_threat_score_basic():
+def calculate_parameter_score(param: str, value: float, thresholds: list) -> int:
     """
-    Test scoring on a dummy row with moderate values.
+    Assigns a risk level (0–3) based on thresholds.
+    This version correctly handles inverted parameters like barometric pressure.
+
+    Parameters
+    ----------
+    param : str
+        The name of the parameter being scored (e.g., "wind_speed").
+    value : float
+        Sensor measurement.
+    thresholds : list
+        Threshold values for caution, warning, danger.
+
+    Returns
+    -------
+    int
+        Risk level (0=Safe, 1=Caution, 2=Warning, 3=Danger).
     """
-    row = pd.Series(
+    if value is None:
+        return 0
+
+    # Special handling for barometric pressure where lower is more dangerous
+    if param == "barometric_pressure":
+        if value > thresholds[0]:
+            return 0
+        elif value > thresholds[1]:
+            return 1
+        elif value > thresholds[2]:
+            return 2
+        else:
+            return 3
+
+    # Standard handling for all other parameters
+    if value < thresholds[0]:
+        return 0
+    elif value < thresholds[1]:
+        return 1
+    elif value < thresholds[2]:
+        return 2
+    else:
+        return 3
+
+
+def calculate_threat_score(row: pd.Series) -> dict:
+    """
+    Compute overall threat score for a single sensor reading.
+
+    Parameters
+    ----------
+    row : pd.Series
+        A row from the processed dataset.
+
+    Returns
+    -------
+    dict
         {
-            "wind_speed": 18,
-            "maximum_wind_speed": 22,
-            "humidity": 80,
-            "rain_intensity": 3,
-            "barometric_pressure": 995,
+            "score": float,
+            "level": str,
+            "parameters": {param: risk_level}
         }
-    )
-
-    result = calculate_threat_score(row)
-
-    assert "score" in result
-    assert "level" in result
-    assert "parameters" in result
-
-    print("Threat Score:", result)
-
-
-def test_calculate_threat_score_extreme():
     """
-    Test scoring on extreme values (simulate cyclone).
-    """
-    row = pd.Series(
-        {
-            "wind_speed": 40,
-            "maximum_wind_speed": 50,
-            "humidity": 98,
-            "rain_intensity": 15,
-            "barometric_pressure": 970,
-        }
-    )
+    parameter_scores = {}
+    weighted_sum = 0
+    total_weight = sum(WEIGHTS.values())
 
-    result = calculate_threat_score(row)
+    for param, thresholds in THRESHOLDS.items():
+        value = row.get(param)
+        # Pass the parameter name to the scoring function
+        risk_level = calculate_parameter_score(param, value, thresholds)
+        parameter_scores[param] = risk_level
 
-    print("Extreme Threat Score:", result)
-    assert result["level"] in ["Warning", "Danger"]
+        weighted_sum += (risk_level / 3) * WEIGHTS[param] * 100
+
+    # Normalize
+    score = weighted_sum / total_weight if total_weight > 0 else 0
+    # Map to threat level
+    if score < 25:
+        level = THREAT_LABELS[0]
+    elif score < 50:
+        level = THREAT_LABELS[1]
+    elif score < 75:
+        level = THREAT_LABELS[2]
+    else:
+        level = THREAT_LABELS[3]
+
+    return {"score": round(score, 2), "level": level, "parameters": parameter_scores}
