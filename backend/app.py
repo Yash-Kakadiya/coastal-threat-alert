@@ -1,53 +1,3 @@
-# """
-# FastAPI backend skeleton for Coastal Threat Alert System.
-# Run (from repo root):
-#     pip install -r backend/requirements.txt
-#     uvicorn backend.app:app --reload --port 7777
-# """
-
-# from fastapi import FastAPI, HTTPException
-# from pydantic import BaseModel
-# from typing import Optional, Dict, Any
-# from .threat_model import calculate_threat_score
-
-# app = FastAPI(title="Coastal Threat Alert - Backend")
-
-
-# class ThreatRequest(BaseModel):
-#     location_id: str
-#     timestamp: Optional[str] = None  # ISO 8601; if None return latest
-#     # optionally allow raw sensor override for quick testing:
-#     sensor_override: Optional[Dict[str, Any]] = None
-
-
-# @app.get("/health")
-# def health():
-#     return {"status": "ok"}
-
-
-# @app.post("/get_threat_level")
-# def get_threat_level(req: ThreatRequest):
-#     """
-#     Return threat score and explanation.
-
-#     For initial commit this uses the sensor_override payload if provided.
-#     Later this endpoint should load the latest processed sensor data for location.
-#     """
-#     # For the first commit, require sensor_override for deterministic demo
-#     if not req.sensor_override:
-#         raise HTTPException(
-#             status_code=400,
-#             detail="Provide sensor_override for demo or implement data loader.",
-#         )
-
-#     sensor_payload = req.sensor_override
-#     # compute score
-#     result = calculate_threat_score(sensor_payload)
-#     # augment with requested metadata
-#     result["location_id"] = req.location_id
-#     result["timestamp"] = req.timestamp or sensor_payload.get("timestamp")
-#     return result
-
 """
 FastAPI application for the Coastal Threat Alert System.
 
@@ -58,6 +8,9 @@ This file defines the main API endpoints for the system:
 - A Server-Sent Events (SSE) stream for live threat updates
 """
 from fastapi import FastAPI, HTTPException, Request
+
+# --- FIX: Import CORSMiddleware ---
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Dict, Optional, Any
@@ -129,6 +82,21 @@ app = FastAPI(
     title="Coastal Threat Alert System API",
     description="API for detecting and alerting on coastal environmental threats.",
     version="1.0.0",
+)
+
+# --- FIX: Add CORS Middleware ---
+# This allows our frontend (running on localhost:5173) to communicate with our backend.
+origins = [
+    "http://localhost",
+    "http://localhost:5173",  # The default Vite dev server port
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 

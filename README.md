@@ -189,24 +189,6 @@ This keeps the system interpretable for operators and easy to tune during the ha
 
 ---
 
-## ✅ Demo priorities (72-hour plan)
-**Day 1: Backend Core (must-have)**  
-- CSV ingestion & preprocessing → `data/processed/`  
-- `calculate_threat_score()` implemented and unit-tested (done)  
-- FastAPI with `/get_threat_level` and demo `sensor_override` (done)
-
-**Day 2: Frontend + integration**  
-- React dashboard with Threat card, line chart (Recharts), and Leaflet map  
-- Map markers for Gujarat coast, color-coded by threat level  
-- Poll backend every 5s, show alert history
-
-**Day 3: Polish & pitch**  
-- Auto-insights and canned alert explanations for “Warning” & “Danger”  
-- Presentation slides + demo recording  
-- Deploy backend (Railway) and frontend (Vercel)
-
----
-
 ## 🧪 Running tests
 From repo root:
 
@@ -227,7 +209,7 @@ pytest
 ---
 
 ## 🏆 Team & Timeline
-**Team Name**: Coastal Guardians  
+**Team Name**: CodeVengers  
 **Project Track**: Environmental Solutions  
 **Development Period**: August 30 — September 1, 2025  
 **HackOut'25 Deliverable**: Demo-ready dashboard + API + short recorded walkthrough

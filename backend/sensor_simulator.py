@@ -1,88 +1,65 @@
-# """
-# Sensor simulator to stream processed CSV/Parquet rows as "live" readings.
-
-# Usage:
-#     from sensor_simulator import SimulatedStream
-#     sim = SimulatedStream("data/processed/porbandar.parquet", delay_s=1.0)
-#     for payload in sim.stream():
-#         # payload is a dict with 'timestamp' and sensor fields
-# """
-
-# import time
-# import pandas as pd
-# from typing import Generator
-
-
-# class SimulatedStream:
-#     def __init__(self, path: str, delay_s: float = 1.0):
-#         self.path = path
-#         self.delay_s = delay_s
-#         # Load into memory for simplicity (ok for demo-size datasets)
-#         self.df = pd.read_parquet(path)
-
-#     def stream(self) -> Generator[dict, None, None]:
-#         """Yield each row as a dict; sleep delay_s between yields."""
-#         for ts, row in self.df.iterrows():
-#             payload = row.to_dict()
-#             # Keep timestamp as ISO string
-#             payload["timestamp"] = pd.Timestamp(ts).isoformat()
-#             yield payload
-#             time.sleep(self.delay_s)
-
-"""
-Sensor simulator to stream processed CSV rows as "live" readings.
-
-This module reads a CSV file and yields its rows one by one with a
-delay, simulating a real-time data feed from a sensor station.
-"""
-
 import time
 import pandas as pd
 from typing import Generator, Dict, Any
 import os
 
+# --- Using the index you discovered to create a demo "story" ---
+STORM_PEAK_INDEX = 43090
+DEMO_SEQUENCE_LENGTH = 100  # We will show 100 data points in our story
+
 
 class CSVSimulatedStream:
     """
-    Reads a CSV file and streams its rows as dictionaries.
+    Creates a compelling demo sequence around the storm peak, starting
+    calm, building to the crisis, and then showing the aftermath.
     """
 
-    def __init__(self, path: str, delay_s: float = 2.0):
-        """
-        Initializes the simulator.
-
-        Parameters
-        ----------
-        path : str
-            The full path to the CSV file.
-        delay_s : float, optional
-            The delay in seconds between yielding each row, by default 2.0.
-        """
+    def __init__(
+        self, path: str, delay_s: float = 1.5
+    ):  # Faster delay for a snappier demo
         self.path = path
         self.delay_s = delay_s
-        # Load the entire CSV into memory. This is fine for our hackathon dataset.
+        self.demo_df = pd.DataFrame()
         try:
-            self.df = pd.read_csv(path)
-            print(
-                f"✅ Simulator loaded {len(self.df)} records from {os.path.basename(path)}."
-            )
+            df = pd.read_csv(path)
+            print(f"✅ Simulator loaded {len(df)} records to build demo sequence.")
+            self._create_demo_sequence(df)
         except FileNotFoundError:
             print(f"❌ ERROR: Data file not found at {path}. Simulator cannot start.")
-            self.df = pd.DataFrame()  # Create an empty dataframe to prevent crashes
 
-    def stream(self) -> Generator[Dict[str, Any], None, None]:
-        """
-        A generator that yields each row as a dictionary and sleeps
-        for the configured delay.
-        """
-        if self.df.empty:
-            print("⚠️ Simulator has no data to stream.")
+    def _create_demo_sequence(self, df: pd.DataFrame):
+        """Builds a curated list of data points for the demo."""
+        # Ensure the peak index is valid
+        if STORM_PEAK_INDEX >= len(df):
+            print("Peak index is out of bounds. Using a random slice.")
+            start = max(0, len(df) - DEMO_SEQUENCE_LENGTH)
+            self.demo_df = df.iloc[start:].reset_index(drop=True)
             return
 
-        for index, row in self.df.iterrows():
-            # Convert the row (a pandas Series) to a dictionary
-            payload = row.to_dict()
-            yield payload
-            # This is a blocking sleep, which is fine for a simple script,
-            # but we will use asyncio.sleep in our FastAPI endpoint.
+        # Create a slice of data centered around the storm peak
+        start_index = max(0, STORM_PEAK_INDEX - (DEMO_SEQUENCE_LENGTH // 2))
+        end_index = min(len(df), STORM_PEAK_INDEX + (DEMO_SEQUENCE_LENGTH // 2))
+
+        storm_slice = df.iloc[start_index:end_index]
+
+        # Add a few seconds of calm data at the beginning to show the transition
+        calm_slice = df.iloc[100:105]  # Pick 5 known calm rows from the start
+
+        self.demo_df = pd.concat([calm_slice, storm_slice]).reset_index(drop=True)
+        print(
+            f"🌪️ Demo sequence created with {len(self.demo_df)} data points, centered on storm peak."
+        )
+
+    def stream(self) -> Generator[Dict[str, Any], None, None]:
+        if self.demo_df.empty:
+            return
+
+        current_index = 0
+        while True:
+            row = self.demo_df.iloc[current_index]
+            yield row.to_dict()
             time.sleep(self.delay_s)
+
+            current_index += 1
+            if current_index >= len(self.demo_df):
+                current_index = 0  # Loop the demo sequence

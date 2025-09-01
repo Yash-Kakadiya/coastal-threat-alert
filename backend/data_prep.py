@@ -81,76 +81,29 @@ Usage:
 Run this script directly to clean the dataset:
     python data_prep.py
 """
-
+"""
+Data preprocessing pipeline for the Beach Weather Stations dataset.
+"""
 import pandas as pd
 from pathlib import Path
 
-# Paths
-RAW_DATA_PATH = Path("backend/data/raw/beach_weather.csv")
-PROCESSED_DATA_PATH = Path("backend/data/processed/cleaned_weather.csv")
-
-
-def load_raw_data(path: Path) -> pd.DataFrame:
-    """
-    Load the raw beach weather dataset from CSV.
-
-    Parameters
-    ----------
-    path : Path
-        Path to the raw CSV file.
-
-    Returns
-    -------
-    df : pd.DataFrame
-        Loaded DataFrame.
-    """
-    return pd.read_csv(path)
+# --- File Paths ---
+BASE_DIR = Path(__file__).parent
+RAW_DATA_PATH = BASE_DIR / "data" / "raw" / "beach_weather.csv"
+PROCESSED_DATA_PATH = BASE_DIR / "data" / "processed" / "cleaned_weather.csv"
 
 
 def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Convert column names to snake_case for consistency.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-
-    Returns
-    -------
-    df : pd.DataFrame
-        DataFrame with cleaned column names.
-    """
     df.columns = (
         df.columns.str.strip()
         .str.lower()
-        .str.replace(" ", "_")
-        .str.replace("(", "", regex=False)
-        .str.replace(")", "", regex=False)
+        .str.replace(r"[^a-z0-9_]+", "_", regex=True)
+        .str.replace(r"_+", "_", regex=True)
     )
     return df
 
 
-def preprocess_dataset(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Preprocess the dataset:
-    - Parse timestamp
-    - Keep relevant columns only
-    - Drop missing values
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-
-    Returns
-    -------
-    df : pd.DataFrame
-        Cleaned DataFrame.
-    """
-    # Parse timestamp
-    df["measurement_timestamp"] = pd.to_datetime(
-        df["measurement_timestamp"], errors="coerce"
-    )
-
+def process_data(df: pd.DataFrame) -> pd.DataFrame:
     # Relevant columns for threat scoring
     keep_cols = [
         "measurement_timestamp",
@@ -161,45 +114,43 @@ def preprocess_dataset(df: pd.DataFrame) -> pd.DataFrame:
         "maximum_wind_speed",
         "barometric_pressure",
     ]
+    # Ensure all required columns exist, fill missing ones with None
+    for col in keep_cols:
+        if col not in df.columns:
+            df[col] = None
+
     df = df[keep_cols]
+    df["measurement_timestamp"] = pd.to_datetime(
+        df["measurement_timestamp"], errors="coerce"
+    )
 
-    # Drop rows with missing values
-    df = df.dropna()
+    # --- FIX: Drop rows with any missing values in the key scoring columns ---
+    # This is the most important step to guarantee data quality.
+    scoring_cols = [
+        "wind_speed",
+        "maximum_wind_speed",
+        "humidity",
+        "rain_intensity",
+        "barometric_pressure",
+    ]
+    df = df.dropna(subset=scoring_cols)
 
-    # Sort by time (important for simulation)
     df = df.sort_values("measurement_timestamp").reset_index(drop=True)
-
     return df
 
 
-def save_processed_data(df: pd.DataFrame, path: Path):
-    """
-    Save cleaned dataset to processed folder.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-    path : Path
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(path, index=False)
-
-
 def main():
-    """Main function to run preprocessing pipeline."""
     print("🔄 Loading raw dataset...")
-    df_raw = load_raw_data(RAW_DATA_PATH)
+    df_raw = pd.read_csv(RAW_DATA_PATH)
 
-    print("🧹 Cleaning column names...")
-    df_clean = clean_column_names(df_raw)
+    print("🧹 Cleaning and processing data...")
+    df_clean_names = clean_column_names(df_raw)
+    df_processed = process_data(df_clean_names)
 
-    print("⚙️ Preprocessing dataset...")
-    df_processed = preprocess_dataset(df_clean)
-
-    print(f"💾 Saving processed dataset → {PROCESSED_DATA_PATH}")
-    save_processed_data(df_processed, PROCESSED_DATA_PATH)
-
-    print("✅ Preprocessing complete.")
+    # Save the processed data
+    PROCESSED_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    df_processed.to_csv(PROCESSED_DATA_PATH, index=False)
+    print(f"✅ Saved {len(df_processed)} cleaned records to {PROCESSED_DATA_PATH}")
 
 
 if __name__ == "__main__":
